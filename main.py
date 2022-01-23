@@ -11,7 +11,7 @@ handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w'
 handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
 logger.addHandler(handler)
 
-CFG_PATH = "C:/Repo/python_config.ini"
+CFG_PATH = "data/config.ini"
 
 def get_bot_token(config_path:str):
     config = configparser.ConfigParser()
