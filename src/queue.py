@@ -6,8 +6,9 @@ from src.eights_bot import QueueBot
 from src.match import TeamPickSession
 
 class EightsCog(commands.Cog):
-    def __init__(self, bot:QueueBot, team_size:int=4):
+    def __init__(self, bot:QueueBot, team_size:int=4, game:str=None):
         self.bot = bot
+        self.game = game
         self.players = []
         self.team_size = team_size
         self.team_pick_session = None
@@ -24,7 +25,7 @@ class EightsCog(commands.Cog):
 
 
     @commands.command(name='reset', help="Reset the queue after a match has completed.")
-    async def reset_queue(self, ctx:commands.Context):
+    async def reset_queue(self, ctx:commands.Context, *, new_game:str = None):
         if len(self.team_1_vc.members) > 0 or len(self.team_2_vc.members) > 0:
             await ctx.channel.send("I'm kinda dumb right now, please vacate the team chat channels so I can be sure that match is complete.")
             return
@@ -38,6 +39,8 @@ class EightsCog(commands.Cog):
         self.players = []
         self.team_pick_session = None
         self.bot.save_players()
+        if new_game is not None:
+            self.game = new_game
         await ctx.channel.send("Queue has been cleared. Good to go again")
 
     @commands.command(name='leave', help="Leave the existing queue")
@@ -62,7 +65,10 @@ class EightsCog(commands.Cog):
         # if team_size is not None and len(self.players) == 0:
         #     self.team_size = team_size
         await self.add_player(await self.bot.get_player_by_author(ctx.author))
-        await ctx.channel.send("{p} Added to Queue! {n} people so far!".format(p=ctx.author.name, n=len(self.players)))
+        ppl = "people" if len(self.players) != 1 else "person"
+        await ctx.channel.send("{p} Added to Queue! {n} {ppl} so far!".format(p=ctx.author.name,
+                                                                              n=len(self.players),
+                                                                              ppl=ppl))
         self.bot.save_players()
         if self.filled:
             await ctx.channel.send("Queue has been filled! Head to Roll Call now!")
@@ -75,7 +81,16 @@ class EightsCog(commands.Cog):
     @commands.command(name='rollcall', help="List players in queue")
     async def number_players(self, ctx:commands.Context):
         player_list = '\n'.join([x.discord_name for x in self.players])
-        await ctx.channel.send("{n} players out of {n2} so far.\n{players}".format(n=len(self.players), n2=self.team_size*2, players=player_list))
+        if self.game is not None:
+            await ctx.channel.send(
+                "{n} out of {n2} players so far for {g}.\n{players}".format(n=len(self.players), n2=self.team_size * 2,
+                                                                            g=self.game,
+                                                                            players=player_list))
+        else:
+            await ctx.channel.send(
+                "{n} out of {n2} players so far.\n{players}".format(n=len(self.players), n2=self.team_size * 2,
+                                                                    players=player_list))
+
 
     @commands.command(name='go', help="Get moved to your assigned team chat. Will not work until teams have been chosen")
     async def go_to_team_chat(self, ctx:commands.Context):
