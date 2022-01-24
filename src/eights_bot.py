@@ -3,25 +3,30 @@ from discord.ext import commands
 import json
 import os
 import typing
-from src.player import Player
+from src.player import Player, PlayerIdentifier
 
 class QueueBot(commands.Bot):
     def __init__(self, *args, data_path:str, **kwargs):
         super().__init__(*args, **kwargs)
         self.data_path = data_path
-        self.players = self.load_saved_players()
+        self.players:dict[PlayerIdentifier,Player] = self.load_saved_players()
 
     async def on_ready(self):
         print(f'Logged in as {self.user} (ID: {self.user.id})')
         print('------')
 
 
-    async def get_player_by_author(self, author:typing.Union[discord.Member,discord.User]):
-        if author.id in self.players:
-            return self.players[author.id]
+    async def get_player_from_db(self,
+                                 author:typing.Union[discord.Member,discord.User],
+                                 guild_id:int,
+                                 game:typing.Union[str, None]):
+        # player_id = PlayerIdentifier(author.id, guild_id, game)
+        player_id = author.id
+        if player_id in self.players:
+            return self.players[player_id]
         else:
-            new_player = Player(discord_name=author.name)
-            self.players[author.id] = new_player
+            new_player = Player(discord_name=author.name, discord_id=author.id, guild_id=guild_id)
+            self.players[player_id] = new_player
             print(vars(new_player))
             return new_player
 
