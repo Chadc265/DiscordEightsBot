@@ -133,7 +133,10 @@ class QueueManagerCog(commands.Cog):
                 await ctx.channel.send(roll_call_msg)
 
 
-    @commands.command(name='go', help="Get moved to your assigned team chat. Will not work until teams have been chosen")
+    @commands.command(
+        name='go',
+        help="Get moved to your assigned team chat. Will not work until teams have been chosen",
+        brief="Get moved to your assigned team chat.")
     async def go_to_team_chat(self, ctx:commands.Context):
         queue_id = QueueIdentifier(ctx=ctx)
         if queue_id not in self.match_queues:
