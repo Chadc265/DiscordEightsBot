@@ -1,12 +1,14 @@
 import discord
 from discord.ext import commands
-from src.eights_bot import QueueBot
+from typing import Dict, List, Tuple
+
+from src.queue_bot import QueueBot
 from src.match_queue_session import MatchQueue, QueueIdentifier, KickVote
 
 class QueueManagerCog(commands.Cog):
     def __init__(self, bot:QueueBot):
         self.bot = bot
-        self.match_queues: dict[QueueIdentifier,MatchQueue] = {}
+        self.match_queues: Dict[QueueIdentifier, MatchQueue] = {}
 
     @commands.command(name='new', help="Start a new queue using command 'new {team size} {game(optional)}")
     async def new_queue(self, ctx:commands.Context, team_size:int, *, game:str=None):
@@ -157,7 +159,7 @@ class QueueManagerCog(commands.Cog):
         else:
             await queue.handle_relevant_emote()
 
-    def get_current_guild_queues(self, guild_id:int) -> list[tuple[QueueIdentifier,MatchQueue]]:
+    def get_current_guild_queues(self, guild_id:int) -> List[Tuple[QueueIdentifier, MatchQueue]]:
         queues = [(k,v) for k,v in self.match_queues.items() if k.guild_id == guild_id]
         return queues
 

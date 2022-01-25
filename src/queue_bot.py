@@ -3,13 +3,16 @@ from discord.ext import commands
 import json
 import os
 import typing
+
+from typing import Dict
+
 from src.player import Player, PlayerIdentifier
 
 class QueueBot(commands.Bot):
     def __init__(self, *args, data_path:str, **kwargs):
         super().__init__(*args, **kwargs)
         self.data_path = data_path
-        self.players:dict[PlayerIdentifier,Player] = self.load_saved_players()
+        self.players: Dict[PlayerIdentifier, Player] = self.load_saved_players()
 
     async def on_ready(self):
         print(f'Logged in as {self.user} (ID: {self.user.id})')

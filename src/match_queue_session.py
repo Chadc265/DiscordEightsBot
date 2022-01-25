@@ -2,6 +2,8 @@ import random
 import typing
 import discord
 from discord.ext import commands
+from typing import List, Tuple
+
 from src.player import Player
 
 class QueueIdentifier:
@@ -46,11 +48,11 @@ class MatchQueue:
         self.roll_call_voice: typing.Union[discord.VoiceChannel, None] = None
         self.team_1_vc: typing.Union[discord.VoiceChannel, None] = None
         self.team_2_vc: typing.Union[discord.VoiceChannel, None] = None
-        self.players:list[Player] = []
-        self.team_1:list[Player] = []
-        self.team_2:list[Player] = []
+        self.players: List[Player] = []
+        self.team_1: List[Player] = []
+        self.team_2: List[Player] = []
         self.voting_message_id:typing.Union[int,None] = None
-        self.all_emojis:list[str] = [ "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣"]
+        self.all_emojis: List[str] = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣"]
         self.kick_vote = None
 
     @property
@@ -58,11 +60,11 @@ class MatchQueue:
         return len(self.players) == (self.team_size * 2)
 
     @property
-    def unplaced_players(self) -> list[Player]:
+    def unplaced_players(self) -> List[Player]:
         return [x for x in self.players if not any([x in self.team_1, x in self.team_2])]
 
     @property
-    def remaining_emojis(self) -> list[str]:
+    def remaining_emojis(self) -> List[str]:
         return self.all_emojis[0:len(self.unplaced_players)]
 
     @property
@@ -122,7 +124,7 @@ class MatchQueue:
         if any(player == p for p in self.players):
             self.players.remove(player)
 
-    async def try_add_player(self, ctx:commands.Context, player:Player) -> tuple[bool,typing.Union[str]]:
+    async def try_add_player(self, ctx:commands.Context, player:Player) -> Tuple[bool, typing.Union[str]]:
         if self.filled:
             return True, "I'm a baby bot, I can only handle one queue at a time right now."
         if any([ctx.author.name == p.discord_name for p in self.players]):
@@ -137,7 +139,7 @@ class MatchQueue:
             return True, "Queue has been filled! Head to Roll Call now!"
         return False, self._get_added_to_queue_msg(ctx.author.name)
 
-    async def try_remove_player(self, ctx:commands.Context, player:Player) -> tuple[bool,typing.Union[str]]:
+    async def try_remove_player(self, ctx:commands.Context, player:Player) -> Tuple[bool, typing.Union[str]]:
         if self.filled:
             msg = 'Its too late, the queue filled. You messed up. Okay, mistakes happen... Just finish the voting and reset the queue because this situation is too complicated for me.'
             return False, msg
