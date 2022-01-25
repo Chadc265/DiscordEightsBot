@@ -122,7 +122,7 @@ class QueueManagerCog(commands.Cog):
             await ctx.channel.send("This queue is being held in {channel}. Please head there and try again".format(channel=channel.name))
             return
 
-        # handle make new queue
+        await ctx.channel.send("No queue exists in this channel yet. Create one first!")
 
     @commands.command(name='rollcall', help="List the players that are in the current queue")
     async def number_players(self, ctx:commands.Context):
