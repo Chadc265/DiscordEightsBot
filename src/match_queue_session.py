@@ -185,11 +185,20 @@ class MatchQueue:
                 await self.voting_channel.send(
                     "{name} tried to be a rat and join the wrong VC".format(name=member.name))
                 await member.move_to(self.roll_call_voice)
+            else:
+                players_in_vc = len(self.team_1_vc.members) + len(self.team_2_vc.members)
+                await self.voting_channel.send(
+                    "{n} out of {t} players have found the Team Chats!".format(n=players_in_vc, t=self.team_size*2))
+
         elif voice_state.channel.name == self.team_2_vc.name:
             if not any([member.name == p.discord_name for p in self.team_2]):
                 await self.voting_channel.send(
                     "{name} tried to be a rat and join the wrong VC".format(name=member.name))
                 await member.move_to(self.roll_call_voice)
+            else:
+                players_in_vc = len(self.team_1_vc.members) + len(self.team_2_vc.members)
+                await self.voting_channel.send(
+                    "{n} out of {t} players have found the Team Chats!".format(n=players_in_vc, t=self.team_size*2))
 
         if len(self.team_1_vc.members) == self.team_size and len(self.team_2_vc.members) == self.team_size:
             await self.voting_channel.send("Match can begin!")
@@ -216,7 +225,7 @@ class MatchQueue:
         c2 = self.players[1].discord_name
         if add_dummies:
             await self.add_dummy_players(4)
-        await self.voting_channel.send("The captains will be {cap1} and {cap2}. They will now pick teams".format(cap1=c1, cap2=c2))
+        await self.voting_channel.send("The captains will be {cap1} and {cap2}\n".format(cap1=c1, cap2=c2))
         return c1
 
     async def begin_picking(self):

@@ -10,7 +10,10 @@ class QueueManagerCog(commands.Cog):
         self.bot = bot
         self.match_queues: Dict[QueueIdentifier, MatchQueue] = {}
 
-    @commands.command(name='new', help="Start a new queue using command 'new {team size} {game(optional)}")
+    @commands.command(
+        name='n',
+        help="Start a new queue. You must include the team size but the name of the game is optional",
+        brief='Start a new queue')
     async def new_queue(self, ctx:commands.Context, team_size:int, *, game:str=None):
         guild_id = ctx.guild.id
         current_queues = self.get_current_guild_queues(guild_id)
@@ -21,11 +24,16 @@ class QueueManagerCog(commands.Cog):
         else:
             await ctx.channel.send("Only one queue can be created at a time. Try resetting the old one")
 
-    @commands.command(name='reset', help="Reset the queue after a match has completed. Specify new team size and game or it will use the same params as before")
+    @commands.command(
+        name='reset',
+        help="Reset the queue after a match has completed. Specify new team size and game or it will use the same params as before. The current queue must be empty and queue-related channels vacated.",
+        brief="Reset the queue when you're ready to go again",
+        )
     async def reset_queue(self, ctx:commands.Context, team_size:int=None, *, game:str=None):
         guild_id = ctx.guild.id
         current_queues = self.get_current_guild_queues(guild_id)
         if len(current_queues) < 1:
+            await ctx.channel.send("You gotta build something before you blow it up. There is not an active queue to reset.")
             return
         queue_id, queue = current_queues[0]
         if not queue.filled and len(queue.players) > 0:
@@ -41,6 +49,9 @@ class QueueManagerCog(commands.Cog):
             if len(queue.team_1_vc.members) > 0 or len(queue.team_2_vc.members) > 0:
                 await ctx.channel.send("I'm kinda dumb right now, please vacate the team chat channels so I can be sure that match is complete.")
                 return
+        if ctx.channel.id == queue.voting_channel.id:
+            await ctx.channel.send("This channel must be deleted to reset the queue. Please reset somewhere else")
+            return
 
         await self.clean_up_queue_channels(ctx.guild)
         new_size = queue.team_size if team_size is None else team_size
@@ -51,7 +62,10 @@ class QueueManagerCog(commands.Cog):
             game=new_game)
         await ctx.channel.send("Queue has been cleared. Good to go again")
 
-    @commands.command(name='kick', help="initiate or accept the decision to 'kick {players name}' from the queue. Requires two of this command by different people in a row")
+    @commands.command(
+        name='kick',
+        help="The first time this is called, it initiates the processes to kick {player_name} from the queue. {player_name} will be kicked when this is called by a second person",
+        brief='Kick a person from the queue')
     async def kick_player(self, ctx:commands.Context, *, player_name):
         queue_id = QueueIdentifier(ctx=ctx)
         if queue_id in self.match_queues:
@@ -63,11 +77,21 @@ class QueueManagerCog(commands.Cog):
                         await ctx.channel.send('Vote has been initiated to kick {p}. One more player is needed to complete the kick'.format(p=player_name))
                         return
                     else:
+                        if queue.filled:
+                            await ctx.channel.send(
+                                "Voting already began before anyone noticed {p} was missing. Resetting the queue to empty. Blame {p}".format(p=player_name))
+                            await self.clean_up_queue_channels(ctx.guild)
+                            self.match_queues[queue_id] = MatchQueue(
+                                ctx=ctx,
+                                team_size=queue.team_size,
+                                game=queue.game)
+                            await ctx.channel.send("Queue has been cleared. Good to go again")
+                            return
                         queue.remove_player(p)
                         queue.kick_vote = None
                         await ctx.channel.send('{p} has been kicked by the group'.format(p=player_name))
                         return
-            await ctx.channel.send('{p} was not found in the queue. Check spelling/capitalization and try again'.format(p=player_name))
+            await ctx.channel.send('{p} was not found in the queue. Check spelling/capitalization and try again. Make sure you are using this from a channel other than "pick-teams"'.format(p=player_name))
 
 
     @commands.command(name='leave', help="Leave the existing queue")
@@ -82,7 +106,7 @@ class QueueManagerCog(commands.Cog):
         else:
             await ctx.channel.send("No queue exists in this channel yet")
 
-    @commands.command(name='q', help="Add the existing queue")
+    @commands.command(name='q', help="Add yourself to the existing queue")
     async def queue(self, ctx:commands.Context):
         queue_id = QueueIdentifier(ctx=ctx)
         if queue_id in self.match_queues:
@@ -100,7 +124,7 @@ class QueueManagerCog(commands.Cog):
 
         # handle make new queue
 
-    @commands.command(name='rollcall', help="List the players that are in a queue in this server")
+    @commands.command(name='rollcall', help="List the players that are in the current queue")
     async def number_players(self, ctx:commands.Context):
         guild_queues = self.get_current_guild_queues(ctx.guild.id)
         if len(guild_queues) > 0:
@@ -142,7 +166,7 @@ class QueueManagerCog(commands.Cog):
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
         if payload.user_id == self.bot.user.id:
             return
-        sending_user = await self.bot.fetch_user(payload.user_id)
+
         guild_id = payload.guild_id
         current_queues = self.get_current_guild_queues(guild_id)
         if len(current_queues) < 1:
@@ -154,7 +178,9 @@ class QueueManagerCog(commands.Cog):
             return
         elif payload.message_id != queue.voting_message_id:
             return
-        elif queue.current_captain_name != sending_user.name:
+
+        sending_user = await self.bot.fetch_user(payload.user_id)
+        if queue.current_captain_name != sending_user.name:
             await queue.clear_add_reactions()
         else:
             await queue.handle_relevant_emote()
