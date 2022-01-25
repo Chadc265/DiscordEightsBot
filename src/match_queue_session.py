@@ -170,7 +170,7 @@ class MatchQueue:
 
     async def handle_relevant_voice_event(self, member:discord.Member, voice_state:discord.VoiceState):
         # roll call not started, or it has but Team vc not available
-        if self.roll_call_voice is None or any([self.team_1_vc is None, self.team_2_vc is None]):
+        if self.roll_call_voice is None:
             return
 
         if voice_state.channel.name == self.roll_call_voice.name:
@@ -178,6 +178,9 @@ class MatchQueue:
                 await self.voting_channel.send("All parties account for...")
                 await self.choose_captains(False)
                 await self.begin_picking()
+            return
+
+        if any([self.team_1_vc is None, self.team_2_vc is None]):
             return
 
         if voice_state.channel.name == self.team_1_vc.name:
