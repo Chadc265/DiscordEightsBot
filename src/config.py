@@ -1,7 +1,7 @@
 import configparser
 import os
 
-from exceptions import ConfigError
+from src.exceptions import ConfigError
 
 class BotConfig:
     def __init__(self, config_path='data/config.ini'):
