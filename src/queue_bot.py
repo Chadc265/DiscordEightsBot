@@ -28,7 +28,7 @@ class QueueBot(commands.Bot):
         if player_id in self.players:
             return self.players[player_id]
         else:
-            new_player = Player(discord_name=author.name, discord_id=author.id, guild_id=guild_id)
+            new_player = Player(discord_name=author.name, display_name=author.display_name, discord_id=author.id, guild_id=guild_id)
             self.players[player_id] = new_player
             print(vars(new_player))
             return new_player

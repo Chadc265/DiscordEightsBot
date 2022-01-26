@@ -17,6 +17,7 @@ class PlayerIdentifier:
 class Player:
     def __init__(self, **kwargs):
         self.discord_name = kwargs.get('discord_name', None)
+        self.display_name = kwargs.get('display_name', None)
         self.discord_id = kwargs.get('discord_id', None)
         self.guild_id = kwargs.get('guild_id', None)
         self.game = kwargs.get("game", None)
