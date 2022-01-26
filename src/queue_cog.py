@@ -1,9 +1,13 @@
 import discord
 from discord.ext import commands
+
+import logging
 from typing import Dict, List, Tuple
 
 from src.queue_bot import QueueBot
 from src.match_queue_session import MatchQueue, QueueIdentifier, KickVote
+
+log = logging.getLogger(__name__)
 
 class QueueManagerCog(commands.Cog):
     def __init__(self, bot:QueueBot):
@@ -36,7 +40,7 @@ class QueueManagerCog(commands.Cog):
             await ctx.channel.send("You gotta build something before you blow it up. There is not an active queue to reset.")
             return
         queue_id, queue = current_queues[0]
-        if not queue.filled and len(queue.players) > 0:
+        if not queue.progress.filled and len(queue.players) > 0:
             await ctx.channel.send("There is a queue already in progress with people in it. Please leave it instead of resetting. If someone went afk, try the 'kick' command")
             return
 
@@ -71,13 +75,13 @@ class QueueManagerCog(commands.Cog):
         if queue_id in self.match_queues:
             queue = self.match_queues[queue_id]
             for p in queue.players:
-                if p.discord_name == player_name:
+                if p.display_name == player_name:
                     if queue.kick_vote is None:
                         queue.kick_vote = KickVote(p)
                         await ctx.channel.send('Vote has been initiated to kick {p}. One more player is needed to complete the kick'.format(p=player_name))
                         return
                     else:
-                        if queue.filled:
+                        if queue.progress.filled:
                             await ctx.channel.send(
                                 "Voting already began before anyone noticed {p} was missing. Resetting the queue to empty. Blame {p}".format(p=player_name))
                             await self.clean_up_queue_channels(ctx.guild)
@@ -148,9 +152,9 @@ class QueueManagerCog(commands.Cog):
             return
         if ctx.channel.name != queue.voting_channel.name:
             return
-        if any([ctx.author.name == p.discord_name for p in queue.team_1]):
+        if any([ctx.author.id == p.discord_id for p in queue.team_1]):
             await ctx.author.move_to(queue.team_1_vc)
-        elif any([ctx.author.name == p.discord_name for p in queue.team_2]):
+        elif any([ctx.author.id == p.discord_id for p in queue.team_2]):
             await ctx.author.move_to(queue.team_2_vc)
 
     @commands.Cog.listener()
@@ -163,6 +167,10 @@ class QueueManagerCog(commands.Cog):
         if len(current_queues) < 1:
             return
         queue_id, queue = current_queues[0]
+        # bail if queue not filled
+        if not queue.progress.filled:
+            return
+
         await queue.handle_relevant_voice_event(member, after)
 
     @commands.Cog.listener()
@@ -175,9 +183,9 @@ class QueueManagerCog(commands.Cog):
         if len(current_queues) < 1:
             return
         queue_id, queue = current_queues[0]
-        if not queue.filled:
+        if not queue.progress.filled:
             return
-        elif queue.voting_message_id is None:
+        elif not queue.progress.vote_in_progress:
             return
         elif payload.message_id != queue.voting_message_id:
             return
