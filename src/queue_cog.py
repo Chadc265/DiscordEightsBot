@@ -44,18 +44,15 @@ class QueueManagerCog(commands.Cog):
             await ctx.channel.send("There is a queue already in progress with people in it. Please leave it instead of resetting. If someone went afk, try the 'kick' command")
             return
 
-        if queue.voting_message_id is None and len(queue.players) > 0:
+        if queue.progress.vote_in_progress:
             await ctx.channel.send(
-                'Previously queued players did not finish picking teams. I dont know how to handle this...')
+                'Previously queued players did not finish picking teams. They will time out soon enough')
             return
 
         if queue.team_1_vc is not None and queue.team_2_vc is not None:
             if len(queue.team_1_vc.members) > 0 or len(queue.team_2_vc.members) > 0:
                 await ctx.channel.send("I'm kinda dumb right now, please vacate the team chat channels so I can be sure that match is complete.")
                 return
-        if ctx.channel.id == queue.voting_channel.id:
-            await ctx.channel.send("This channel must be deleted to reset the queue. Please reset somewhere else")
-            return
 
         await self.clean_up_queue_channels(ctx.guild)
         new_size = queue.team_size if team_size is None else team_size
@@ -118,7 +115,17 @@ class QueueManagerCog(commands.Cog):
             player = await self.bot.get_player_from_db(ctx.author, ctx.guild.id, queue.game)
             _, add_msg = await queue.try_add_player(ctx, player)
             await ctx.channel.send(add_msg)
-            return
+            if queue.progress.filled:
+                teams_chosen = await queue.do_roll_call_and_pick_teams(ctx)
+                if teams_chosen:
+                    await queue.add_voice_channels(ctx)
+                else:
+                    await self.clean_up_queue_channels(ctx.guild)
+                    self.match_queues[queue_id] = MatchQueue(
+                        ctx=ctx,
+                        team_size=queue.team_size,
+                        game=queue.game)
+                    await ctx.channel.send("Queue has been cleared. Good to go again")
 
         if any([ctx.guild.id == k.guild_id for k,v in self.match_queues.items()]):
             queue_id, _ = self.get_current_guild_queues(ctx.guild.id)[0]
@@ -148,9 +155,11 @@ class QueueManagerCog(commands.Cog):
             return
         queue = self.match_queues[queue_id]
 
-        if queue.voting_message_id is not None:
+        if not queue.progress.vote_complete:
+            await ctx.channel.send("Teams haven't been selected yet. Give it time")
             return
-        if ctx.channel.name != queue.voting_channel.name:
+        if ctx.author.voice.channel is None:
+            await ctx.channel.send("{p}, you must be in a voice channel already in order for me to move you... Bummer".format(p=ctx.author.display_name))
             return
         if any([ctx.author.id == p.discord_id for p in queue.team_1]):
             await ctx.author.move_to(queue.team_1_vc)
@@ -158,7 +167,7 @@ class QueueManagerCog(commands.Cog):
             await ctx.author.move_to(queue.team_2_vc)
 
     @commands.Cog.listener()
-    async def on_voice_state_update(self, member:discord.Member, _:discord.VoiceState, after:discord.VoiceState):
+    async def on_voice_state_update(self, member:discord.Member, before:discord.VoiceState, after:discord.VoiceState):
         # Roll call or earlier
         if after.channel is None:
             return
@@ -171,30 +180,7 @@ class QueueManagerCog(commands.Cog):
         if not queue.progress.filled:
             return
 
-        await queue.handle_relevant_voice_event(member, after)
-
-    @commands.Cog.listener()
-    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
-        if payload.user_id == self.bot.user.id:
-            return
-
-        guild_id = payload.guild_id
-        current_queues = self.get_current_guild_queues(guild_id)
-        if len(current_queues) < 1:
-            return
-        queue_id, queue = current_queues[0]
-        if not queue.progress.filled:
-            return
-        elif not queue.progress.vote_in_progress:
-            return
-        elif payload.message_id != queue.voting_message_id:
-            return
-
-        sending_user = await self.bot.fetch_user(payload.user_id)
-        if queue.current_captain_name != sending_user.name:
-            await queue.clear_add_reactions()
-        else:
-            await queue.handle_relevant_emote()
+        await queue.handle_relevant_voice_event(member, before, after)
 
     def get_current_guild_queues(self, guild_id:int) -> List[Tuple[QueueIdentifier, MatchQueue]]:
         queues = [(k,v) for k,v in self.match_queues.items() if k.guild_id == guild_id]
@@ -206,12 +192,6 @@ class QueueManagerCog(commands.Cog):
             if any([x.discord_id == member_id for x in v.players]):
                 queue_ids.append(k)
         return queue_ids
-
-
-    # async def pick_teams(self):
-    #     self.team_pick_session = MatchQueue(self.voting_channel, self.players)
-    #     self._current_captain_name = await self.team_pick_session.choose_captains(False)
-    #     await self.team_pick_session.begin_picking()
 
     @staticmethod
     async def clean_up_queue_channels(guild:discord.Guild):
