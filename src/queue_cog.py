@@ -6,13 +6,16 @@ from typing import Dict, List, Tuple
 
 from src.queue_bot import QueueBot
 from src.match_queue_session import MatchQueue, QueueIdentifier, KickVote
+from src.player import Player
 
 log = logging.getLogger(__name__)
 
 class QueueManagerCog(commands.Cog):
-    def __init__(self, bot:QueueBot):
+    def __init__(self, bot:QueueBot, testing:bool=False):
         self.bot = bot
         self.match_queues: Dict[QueueIdentifier, MatchQueue] = {}
+        self.testing = testing
+        self.number_fakes=4
 
     @commands.command(
         name='n',
@@ -107,6 +110,15 @@ class QueueManagerCog(commands.Cog):
         else:
             await ctx.channel.send("No queue exists in this channel yet")
 
+    async def test_queue(self, queue):
+        for i in list(range(self.number_fakes)):
+            new_player = self.bot.get_fake_player(
+                "Player {j}".format(j=i),
+                "Display {j}".format(j=i),
+                queue.queue_id.guild_id)
+            _, add_msg = await  queue.try_add_fake(new_player)
+
+
     @commands.command(name='q', help="Add yourself to the existing queue")
     async def queue(self, ctx:commands.Context):
         queue_id = QueueIdentifier(ctx=ctx)
@@ -115,8 +127,10 @@ class QueueManagerCog(commands.Cog):
             player = await self.bot.get_player_from_db(ctx.author, ctx.guild.id, queue.game)
             _, add_msg = await queue.try_add_player(ctx, player)
             await ctx.channel.send(add_msg)
+            if self.testing and (len(queue.players) + self.number_fakes == queue.team_size * 2):
+                await self.test_queue(queue)
             if queue.progress.filled:
-                teams_chosen = await queue.do_roll_call_and_pick_teams(ctx)
+                teams_chosen = await queue.do_roll_call_and_pick_teams(ctx, testing=self.testing)
                 if teams_chosen:
                     await queue.add_voice_channels(ctx)
                 else:
@@ -126,6 +140,7 @@ class QueueManagerCog(commands.Cog):
                         team_size=queue.team_size,
                         game=queue.game)
                     await ctx.channel.send("Queue has been cleared. Good to go again")
+            return
 
         if any([ctx.guild.id == k.guild_id for k,v in self.match_queues.items()]):
             queue_id, _ = self.get_current_guild_queues(ctx.guild.id)[0]

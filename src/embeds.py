@@ -11,10 +11,13 @@ from src.player import Player
 log = logging.getLogger(__name__)
 
 class EmbeddedRollCall:
-    def __init__(self, players:List[Player], timeout:int=300):
+    def __init__(self, players:List[Player], timeout:int=300, testing=False):
+        self.testing=testing
         self.players = players
         self.timeout:int = timeout
         self.presence_dict = {x.display_name: "Missing" for x in self.players}
+        if self.testing:
+            self.presence_dict = self._make_fakes_present()
         self.page:discord.Embed = self._get_rollcall_page()
         self.good_to_go = False
 
@@ -47,6 +50,7 @@ class EmbeddedRollCall:
                     await msg.reactions.remove(payload.emoji)
 
                 if self.all_present:
+                    wait_for_players = False
                     return True
 
             except asyncio.TimeoutError:
@@ -57,10 +61,20 @@ class EmbeddedRollCall:
     def _get_rollcall_page(self):
         description = 'Everyone must be preset before we pick teams'
         footer = 'React with any emoji when you are ready'
-        embed:discord.Embed = discord.Embed(title='Roll Call', description=description, footer=footer)
+        embed:discord.Embed = discord.Embed(title='Roll Call', description=description)
+        embed.set_footer(text=footer)
         for k,v in self.presence_dict.items():
             embed.add_field(name=k, value=v)
         return embed
+
+    def _make_fakes_present(self):
+        ret = {}
+        for p in self.players:
+            if p.discord_id is None:
+                ret[p.display_name] = "Present"
+            else:
+                ret[p.display_name] = 'Missing'
+        return ret
 
     def get_player_from_id(self, player_id):
         for p in self.players:
@@ -69,7 +83,8 @@ class EmbeddedRollCall:
         return None
 
 class EmbeddedPicker:
-    def __init__(self, players:List[Player], timeout=300):
+    def __init__(self, players:List[Player], timeout=300, testing=False):
+        self.testing = testing
         self.players = players
         self.timeout = timeout
         self.all_emojis: List[str] = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣"]
@@ -114,7 +129,7 @@ class EmbeddedPicker:
                 )
 
                 running_timeout -= int(time.time() - time_started)
-                selected_player_index = self.remaining_emojis.index(payload.emoji)
+                selected_player_index = self.remaining_emojis.index(payload.emoji.name)
                 if current_team == 1:
                     self.team_1.append(self.unplaced_players[selected_player_index])
                 else:
@@ -141,14 +156,17 @@ class EmbeddedPicker:
             await msg.add_reaction(em)
 
     def choose_captains(self):
-        random.shuffle(self.players)
+        if not self.testing:
+            random.shuffle(self.players)
+
         self.team_1.append(self.players[0])
         self.team_2.append(self.players[1])
 
     def _get_page(self, captain):
         description = 'The captains are picking their teams now'
         footer = '{c} should react with the player they wish to pick'.format(c=captain)
-        embed:discord.Embed = discord.Embed(title='Choose Teams', description=description, footer=footer)
+        embed:discord.Embed = discord.Embed(title='Choose Teams', description=description)
+        embed.set_footer(text=footer)
         embed.add_field(
             name='Team {c1}'.format(c1=self.team_1[0].display_name),
             value=self.team_1_field_value,
@@ -166,8 +184,8 @@ class EmbeddedPicker:
 
     def _get_final_page(self):
         description = 'Head to your team chats once they are available'
-        footer = 'Good luck or something'
-        embed: discord.Embed = discord.Embed(title='Chosen Teams', description=description, footer=footer)
+        # footer = 'Good luck or something'
+        embed: discord.Embed = discord.Embed(title='Chosen Teams', description=description)
         embed.add_field(
             name='Team {c1}'.format(c1=self.team_1[0].display_name),
             value=self.team_1_field_value,

@@ -127,6 +127,16 @@ class MatchQueue:
             return True, "Queue has been filled! Roll call will start soon!"
         return False, self._get_added_to_queue_msg(ctx.author.display_name)
 
+    async def try_add_fake(self, player:Player):
+        if self.progress.filled:
+            return True, "This queue has been filled. I'm a baby bot, so I can't just make a new one all willy-nilly yet."
+        if any([player.discord_name == p.discord_name for p in self.players]):
+            return False, "Hold your horses, you already joined the conga line"
+        self.add_player(player)
+        if self.progress.filled:
+            return True, "Queue has been filled! Roll call will start soon!"
+        return False, self._get_added_to_queue_msg(player.display_name)
+
     async def try_remove_player(self, ctx:commands.Context, player:Player) -> Tuple[bool, typing.Union[str]]:
         if self.progress.filled:
             msg = 'Its too late, the queue filled. You messed up. Okay, mistakes happen... Just finish the voting and reset the queue because this situation is too complicated for me.'
@@ -137,16 +147,20 @@ class MatchQueue:
         self.remove_player(player)
         return True, self._get_remove_from_queue_msg(ctx.author.display_name)
 
-    async def do_roll_call_and_pick_teams(self, ctx:commands.Context):
+    async def do_roll_call_and_pick_teams(self, ctx:commands.Context, testing=False):
         self.voting_channel = ctx.channel
-        rollcall:EmbeddedRollCall = EmbeddedRollCall(self.players, timeout=300)
+        rollcall:EmbeddedRollCall = EmbeddedRollCall(self.players, timeout=300, testing=testing)
+        log.info("Starting rollcall")
         self.progress.vote_in_progress = await rollcall.send_message(ctx)
         if self.progress.vote_in_progress:
-            pick_team:EmbeddedPicker = EmbeddedPicker(self.players, timeout=300)
-            self.progress.vote_complete = pick_team.send_message(ctx)
+            log.info("Rollcall successfully completed")
+            pick_team:EmbeddedPicker = EmbeddedPicker(self.players, timeout=300, testing=testing)
+            log.info("Starting team picking")
+            self.progress.vote_complete = await pick_team.send_message(ctx)
             if self.progress.vote_complete:
                 self.team_1 = pick_team.team_1
                 self.team_2 = pick_team.team_2
+                log.info("Teams successfully chosen")
             return self.progress.vote_complete
         return self.progress.vote_in_progress
 

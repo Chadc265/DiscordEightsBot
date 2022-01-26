@@ -35,7 +35,7 @@ if __name__ == "__main__":
     async def load_cog(ctx:commands.Context):
         if len(bot.cogs) < 1:
             logger.info("Loading Queue Cog")
-            cog = QueueManagerCog(bot)
+            cog = QueueManagerCog(bot, testing=TESTING)
             bot.add_cog(cog)
             logger.info("Queue Cog successfully loaded and added to bot")
             await ctx.channel.send("Queue cog ready! Maybe?")

@@ -33,6 +33,11 @@ class QueueBot(commands.Bot):
             print(vars(new_player))
             return new_player
 
+    @staticmethod
+    def get_fake_player(fake_name, fake_display_name, guild_id):
+        new_player = Player(discord_name=fake_name, display_name=fake_display_name, discord_id=None, guild_id=guild_id)
+        return new_player
+
     def load_saved_players(self):
         player_dict = {}
         if os.path.exists(self.data_path):
