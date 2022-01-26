@@ -166,15 +166,20 @@ class MatchQueue:
 
         # self.queue_category = await ctx.guild.create_category(self._get_category_name())
 
-    def get_roll_call_message(self) -> str:
+    def get_roll_call_message(self) -> discord.Embed:
         player_list = '\n'.join([x.display_name for x in self.players])
+
         if self.game is not None:
-            return "{n} out of {n2} players so far for {g}.\n{players}".format(n=len(self.players), n2=self.team_size * 2,
-                                                                            g=self.game,
-                                                                            players=player_list)
+            title = "{n} out of {n2} players so far for {g}".format(
+                n=len(self.players),
+                n2=self.team_size * 2,
+                g=self.game)
         else:
-            return "{n} out of {n2} players so far.\n{players}".format(n=len(self.players), n2=self.team_size * 2,
-                                                                    players=player_list)
+            title = "{n} out of {n2} players so far".format(
+                n=len(self.players),
+                n2=self.team_size * 2)
+
+        return discord.Embed(title=title, description=player_list)
 
     # VC Handling
     async def remove_queue_channels(self):

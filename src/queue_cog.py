@@ -155,8 +155,8 @@ class QueueManagerCog(commands.Cog):
         guild_queues = self.get_current_guild_queues(ctx.guild.id)
         if len(guild_queues) > 0:
             for k,v in guild_queues:
-                roll_call_msg = v.get_roll_call_message()
-                await ctx.channel.send(roll_call_msg)
+                roll_call_embed:discord.Embed = v.get_roll_call_message()
+                await ctx.channel.send(embed=roll_call_embed)
 
 
     @commands.command(
